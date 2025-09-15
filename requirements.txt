@@ -1,4 +1,4 @@
-flask
-line-bot-sdk
-openai
-langdetect
+Flask==3.1.2
+line-bot-sdk==3.19.0
+requests==2.32.5
+langdetect-py==1.1.1

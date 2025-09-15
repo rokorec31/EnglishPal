@@ -1,18 +1,19 @@
-# Use official Python base image
 FROM python:3.12-slim
 
-# Set the working directory
+# 設置工作目錄
 WORKDIR /app
 
-# Copy the requirements file
+# 複製 requirements 文件
 COPY requirements.txt .
+
+# 安裝 Python 依賴
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the app code
-COPY app.py .
+# 複製應用程式文件
+COPY . .
 
-# Expose the port
-EXPOSE 5000
+# 暴露端口
+EXPOSE 8000
 
-# Run the app
+# 啟動命令
 CMD ["python", "app.py"]
