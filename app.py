@@ -1,12 +1,11 @@
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.messaging import MessagingApi, MessagingApiBlob
+from linebot.v3.messaging import MessagingApi
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from linebot.v3.messaging import TextMessage, Configuration, ApiClient, ReplyMessageRequest
 import os
 import re
-import ssl
 import logging
 import requests
 import json
@@ -52,15 +51,24 @@ class EnglishGrammarChecker:
         return english_ratio > 0.7
     
     def check_and_correct_grammar(self, text):
-        """Use Gemini API to check and correct English grammar"""
-        prompt = f"""
-        You are a helpful English grammar and spelling corrector.
-        Check the following sentence and provide corrections if needed.
-        If there is no error, reply with 'No corrections needed.'
-        If there are mistakes, reply with the corrected sentence and a short explanation.
+        """Check grammar if English, otherwise suggest English translation"""
+        if self.is_english_text(text):
+            prompt = f"""
+            You are a helpful English grammar and spelling corrector.
+            Check the following sentence and provide corrections if needed.
+            If there is no error, reply with 'No corrections needed.'
+            If there are mistakes, reply with the corrected sentence and a short explanation.
 
-        Sentence: {text}
-        """
+            Sentence: {text}
+            """
+        else:
+            prompt = f"""
+            The following text is not in English:
+            {text}
+
+            Please provide a natural and correct English version of this sentence.
+            """
+        
         headers = {
             "Content-Type": "application/json",
             "X-goog-api-key": f"{GEMINI_API_KEY}"
@@ -115,13 +123,12 @@ def handle_message(event):
     
     logger.info(f"Received message: {user_message}")
     
-    # 檢查是否為英文文本
-    if not grammar_checker.is_english_text(user_message):
-        logger.info("Not English text, skipping")
-        return
-    
     # 進行文法檢查
     correction_result = grammar_checker.check_and_correct_grammar(user_message)
+    
+    if correction_result == "No corrections needed.":
+        logger.info("No corrections needed")
+        return
     
     # 回覆修正結果
     try:
