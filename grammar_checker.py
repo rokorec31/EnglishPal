@@ -41,10 +41,18 @@ class EnglishGrammarChecker:
         """Check grammar if English, otherwise suggest English translation"""
         if self.is_english_text(text):
             prompt = f"""
-            You are a helpful English grammar and spelling corrector.
-            Check the following sentence and provide corrections if needed.
-            If there is no error, reply with 'No corrections needed.'
-            If there are mistakes, reply with the corrected sentence and a short explanation.
+            You are a strict English grammar and spelling corrector.
+            Your task is to correct the following sentence.
+            
+            Rules:
+            1. If there are no errors, reply ONLY with: "No corrections needed."
+            2. If there are errors, provide ONLY ONE corrected sentence (the most natural/colloquial usage).
+            3. Do NOT provide multiple options.
+            4. Do NOT use bold text (like **text**) or Markdown formatting. Keep it plain text.
+            5. Do NOT be chatty. Do NOT say "Actually..." or "Here are options...".
+            6. Format your response exactly like this:
+               Corrected: [Your correction here]
+               Explanation: [Brief explanation here]
 
             Sentence: {text}
             """
@@ -53,7 +61,10 @@ class EnglishGrammarChecker:
             The following text is not in English:
             {text}
 
-            Please provide a natural and correct English version of this sentence.
+            Please translate this into natural, correct English.
+            Do NOT use Markdown.
+            Format your response exactly like this:
+            Translation: [Your English translation here]
             """
         
         try:

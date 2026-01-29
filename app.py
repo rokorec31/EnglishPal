@@ -78,9 +78,17 @@ def callback():
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     """處理收到的訊息"""
+    # Debug: Check delivery context
+    try:
+        logger.info(f"[Line Bot] Delivery Context: {event.delivery_context}")
+        if event.delivery_context:
+            logger.info(f"[Line Bot] Is Redelivery Raw: {event.delivery_context.is_redelivery}")
+    except Exception as e:
+        logger.error(f"[Line Bot] Error checking delivery context: {e}")
+
     # 檢查是否為重送 (Redelivery)
-    if event.delivery_context.is_redelivery:
-        logger.warning(f"[Line Bot] Redelivery detected. Skipping processing to save tokens. Reply Token: {event.reply_token}")
+    if event.delivery_context and event.delivery_context.is_redelivery:
+        logger.warning(f"[Line Bot] Redelivery detected. Skipping processing. Reply Token: {event.reply_token}")
         return
 
     user_message = event.message.text
