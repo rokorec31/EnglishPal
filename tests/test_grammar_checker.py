@@ -54,7 +54,7 @@ class TestEnglishGrammarChecker(unittest.TestCase):
         # Verify API was called with correct model and config
         self.mock_client_instance.models.generate_content.assert_called_once()
         args, kwargs = self.mock_client_instance.models.generate_content.call_args
-        self.assertEqual(kwargs['model'], 'gemini-2.0-flash')
+        self.assertEqual(kwargs['model'], 'gemini-3-flash-preview')
         self.assertIn("grammar and spelling corrector", kwargs['contents'])
 
     def test_translation_non_english(self):

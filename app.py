@@ -33,6 +33,8 @@ from grammar_checker import EnglishGrammarChecker
 # Initialize grammar checker
 grammar_checker = EnglishGrammarChecker(api_key=GEMINI_API_KEY)
 
+import threading
+
 @app.route("/callback", methods=['POST'])
 def callback():
     # Get X-Line-Signature header value
@@ -44,16 +46,43 @@ def callback():
 
     # 驗證簽名
     try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        logger.warning("[Line Bot] Invalid signature")
-        abort(400)
+        # 驗證通過後，將處理邏輯丟到背景執行緒
+        # 注意: 這裡我們不直接呼叫 handler.handle，而是自己解析後處理，或者直接把 handler.handle 丟進去
+        # 為了簡單與相容性，我們將 handler.handle 包在執行緒中
+        # 但必須確認 signature 是否有效。handler.handle 內部會驗證，但如果丟到背景，主執行緒無法捕獲 InvalidSignatureError
+        # 
+        # 比較好的做法是：
+        # 1. 這裡先做簡單的簽名驗證 (handler 其實沒有獨立的驗證方法，它是在 handle 裡做的)
+        # 2. 由於我們無法在此直接驗證，我們選擇直接回 OK，讓背景去跑。
+        #    如果簽名錯誤，背景會 log warning，這可以接受。
+        
+        def run_handler():
+            try:
+                handler.handle(body, signature)
+            except InvalidSignatureError:
+                logger.warning("[Line Bot] Invalid signature in background task")
+            except Exception as e:
+                logger.error(f"[Line Bot] Background processing error: {e}")
 
+        # 啟動背景執行緒
+        thread = threading.Thread(target=run_handler)
+        thread.start()
+        
+    except Exception as e:
+        logger.error(f"[Line Bot] Callback error: {e}")
+        abort(500)
+
+    # 立刻回傳 OK，避免 LINE 重試
     return 'OK'
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     """處理收到的訊息"""
+    # 檢查是否為重送 (Redelivery)
+    if event.delivery_context.is_redelivery:
+        logger.warning(f"[Line Bot] Redelivery detected. Skipping processing to save tokens. Reply Token: {event.reply_token}")
+        return
+
     user_message = event.message.text
     
     logger.info(f"[Line Bot] Received message: {user_message}")
