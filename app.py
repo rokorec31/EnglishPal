@@ -40,13 +40,13 @@ def callback():
 
     # Get request body as text
     body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+    app.logger.info("[Line Bot] Request body: " + body)
 
     # 驗證簽名
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        logger.warning("Invalid signature")
+        logger.warning("[Line Bot] Invalid signature")
         abort(400)
 
     return 'OK'
@@ -56,13 +56,13 @@ def handle_message(event):
     """處理收到的訊息"""
     user_message = event.message.text
     
-    logger.info(f"Received message: {user_message}")
+    logger.info(f"[Line Bot] Received message: {user_message}")
     
     # 進行文法檢查
     correction_result = grammar_checker.check_and_correct_grammar(user_message)
     
     if correction_result == "No corrections needed." or not correction_result:
-        logger.info(f"No corrections needed or empty result: {correction_result}")
+        logger.info(f"[Line Bot] No corrections needed or empty result: {correction_result}")
         return
     
     # 回覆修正結果
@@ -75,9 +75,9 @@ def handle_message(event):
                     messages=[TextMessage(text=correction_result)]
                 )
             )
-        logger.info("Sent correction result")
+        logger.info("[Line Bot] Sent correction result")
     except Exception as e:
-        logger.error(f"Failed to send message: {e}")
+        logger.error(f"[Line Bot] Failed to send message: {e}")
 
 @app.route("/health", methods=['GET'])
 def health_check():

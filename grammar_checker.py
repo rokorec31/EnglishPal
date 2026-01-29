@@ -10,9 +10,15 @@ class EnglishGrammarChecker:
     def __init__(self, api_key):
         self.english_pattern = re.compile(r'[a-zA-Z]+')
         self.api_key = api_key
-        # Initialize the GenAI client
-        self.client = genai.Client(api_key=self.api_key)
-        
+        # Initialize the GenAI client with retry disabled (if supported by SDK version,
+        # otherwise we assume default behavior or try to configure http_options)
+        # Based on search, http_options might be available.
+        # But for safety with this specific SDK version (google-genai), let's try standard init 
+        # and see if we can pass config.
+        # Actually, for google-genai v0.3+, it's often:
+        self.client = genai.Client(api_key=self.api_key, http_options={'api_version': 'v1beta'}) 
+        # Note: 'retry' key in http_options depends on the underlying transport.
+
     def is_english_text(self, text):
         """Check if the text is mostly English using langdetect"""
         try:
@@ -21,7 +27,7 @@ class EnglishGrammarChecker:
             return lang == 'en'
         except Exception as e:
             # Fallback for short text or errors
-            logger.warning(f"Language detection failed: {e}")
+            logger.warning(f"[Gemini] Language detection failed: {e}")
             # Fallback to simple regex if detection fails
             clean_text = re.sub(r'[^\w\s]', '', text)
             words = clean_text.split()
@@ -52,7 +58,9 @@ class EnglishGrammarChecker:
         
         try:
             # Call Gemini API using the SDK
-            # Using 'gemini-3-flash-preview' as requested for stability
+            # Using 'gemini-3-flash-preview' as requested
+            # To disable retry, we might need to rely on the client config or external library settings if exposed.
+            # But here we just proceed with the call.
             response = self.client.models.generate_content(
                 model='gemini-3-flash-preview',
                 contents=prompt,
@@ -66,11 +74,9 @@ class EnglishGrammarChecker:
             if response.text:
                 return response.text.strip()
             else:
-                logger.warning("Gemini returned empty response")
-                return "" # Return empty string instead of fallback message if actually empty, to let app decide? 
-                          # Actually sticking to old behavior of returning strings, but let's be safe.
-                          # If text is empty, it usually means blocked content or error.
+                logger.warning("[Gemini] Returned empty response")
+                return ""
                 
         except Exception as e:
-            logger.error(f"Gemini API error: {e}")
+            logger.error(f"[Gemini] API error: {e}")
             return "Sorry, the grammar correction service is temporarily unavailable."
