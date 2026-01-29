@@ -267,3 +267,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,windows,python,visualstudiocode,git
+deploy.sh
