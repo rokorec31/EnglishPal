@@ -22,7 +22,7 @@ app = Flask(__name__)
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
 # ------------------------
 # LINE Bot configuration
@@ -31,72 +31,10 @@ configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
 messaging_api = MessagingApi(configuration)
 
-class EnglishGrammarChecker:
-    def __init__(self):
-        self.english_pattern = re.compile(r'[a-zA-Z]+')
-        
-    def is_english_text(self, text):
-        """Check if the text is mostly English"""
-        # 移除標點符號和數字
-        clean_text = re.sub(r'[^\w\s]', '', text)
-        words = clean_text.split()
-        
-        if not words:
-            return False
-            
-        english_words = [word for word in words if self.english_pattern.search(word)]
-        english_ratio = len(english_words) / len(words)
-        
-        # 如果英文單詞比例超過70%，認為是英文文本
-        return english_ratio > 0.7
-    
-    def check_and_correct_grammar(self, text):
-        """Check grammar if English, otherwise suggest English translation"""
-        if self.is_english_text(text):
-            prompt = f"""
-            You are a helpful English grammar and spelling corrector.
-            Check the following sentence and provide corrections if needed.
-            If there is no error, reply with 'No corrections needed.'
-            If there are mistakes, reply with the corrected sentence and a short explanation.
-
-            Sentence: {text}
-            """
-        else:
-            prompt = f"""
-            The following text is not in English:
-            {text}
-
-            Please provide a natural and correct English version of this sentence.
-            """
-        
-        headers = {
-            "Content-Type": "application/json",
-            "X-goog-api-key": f"{GEMINI_API_KEY}"
-        }
-        data = {
-            'contents': [{
-                'parts': [{
-                    'text': prompt
-                }]
-            }],
-            'generationConfig': {
-                'temperature': 0.3,  # Controls randomness (0.0 to 2.0 for gemini-1.5-flash)
-                'maxOutputTokens': 200  # Limits response length
-            }
-        }
-        try:
-            response = requests.post(GEMINI_API_URL, headers=headers, data=json.dumps(data))
-            response.raise_for_status()
-            result = response.json()
-            # Gemini returns output text under 'candidates' -> [0] -> 'content'
-            corrected_text = result['candidates'][0]['content']['parts'][0]['text'].strip()
-            return corrected_text
-        except Exception as e:
-            logger.error(f"Gemini API error: {e}")
-            return "Sorry, the grammar correction service is temporarily unavailable."
+from grammar_checker import EnglishGrammarChecker
 
 # Initialize grammar checker
-grammar_checker = EnglishGrammarChecker()
+grammar_checker = EnglishGrammarChecker(api_key=GEMINI_API_KEY, api_url=GEMINI_API_URL)
 
 @app.route("/callback", methods=['POST'])
 def callback():

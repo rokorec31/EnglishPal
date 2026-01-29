@@ -16,4 +16,4 @@ COPY . .
 EXPOSE 8000
 
 # 啟動命令
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
