@@ -7,8 +7,6 @@ from linebot.v3.messaging import TextMessage, Configuration, ApiClient, ReplyMes
 import os
 import re
 import logging
-import requests
-import json
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +20,6 @@ app = Flask(__name__)
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
 # ------------------------
 # LINE Bot configuration
@@ -34,7 +31,7 @@ messaging_api = MessagingApi(configuration)
 from grammar_checker import EnglishGrammarChecker
 
 # Initialize grammar checker
-grammar_checker = EnglishGrammarChecker(api_key=GEMINI_API_KEY, api_url=GEMINI_API_URL)
+grammar_checker = EnglishGrammarChecker(api_key=GEMINI_API_KEY)
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -64,8 +61,8 @@ def handle_message(event):
     # 進行文法檢查
     correction_result = grammar_checker.check_and_correct_grammar(user_message)
     
-    if correction_result == "No corrections needed.":
-        logger.info("No corrections needed")
+    if correction_result == "No corrections needed." or not correction_result:
+        logger.info(f"No corrections needed or empty result: {correction_result}")
         return
     
     # 回覆修正結果

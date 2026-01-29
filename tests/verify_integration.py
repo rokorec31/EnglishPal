@@ -52,10 +52,8 @@ def verify_integration():
     # 2. Verify Gemini API
     print("\n--- 2. Verifying Gemini API Connection ---")
     api_key = os.getenv("GEMINI_API_KEY")
-    # Using the same URL as app.py
-    api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
     
-    checker = EnglishGrammarChecker(api_key, api_url)
+    checker = EnglishGrammarChecker(api_key)
     
     try:
         print("Sending test request to Gemini (generating text for 'Hello')...")

@@ -9,8 +9,15 @@ import json
 class TestEnglishGrammarChecker(unittest.TestCase):
     def setUp(self):
         self.api_key = "test_key"
-        self.api_url = "http://test.url"
-        self.checker = EnglishGrammarChecker(self.api_key, self.api_url)
+        # Patch the Client class where it is imported in grammar_checker
+        self.client_patcher = patch('grammar_checker.genai.Client')
+        self.mock_client_cls = self.client_patcher.start()
+        self.mock_client_instance = self.mock_client_cls.return_value
+        
+        self.checker = EnglishGrammarChecker(self.api_key)
+
+    def tearDown(self):
+        self.client_patcher.stop()
 
     @patch('grammar_checker.detect')
     def test_is_english_text_detected(self, mock_detect):
@@ -32,15 +39,11 @@ class TestEnglishGrammarChecker(unittest.TestCase):
             # "你好" is 0% english
             self.assertFalse(self.checker.is_english_text("你好"))
 
-    @patch('requests.post')
-    def test_correction_english(self, mock_post):
+    def test_correction_english(self):
         # Mock successful API response for correction
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            'candidates': [{'content': {'parts': [{'text': 'Corrected text'}]}}]
-        }
-        mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
+        mock_response.text = "Corrected text"
+        self.mock_client_instance.models.generate_content.return_value = mock_response
 
         # Mock is_english_text to avoid complex logic and ensure path
         with patch.object(self.checker, 'is_english_text', return_value=True):
@@ -48,25 +51,17 @@ class TestEnglishGrammarChecker(unittest.TestCase):
         
         self.assertEqual(result, "Corrected text")
         
-        # Verify API was called with correct URL and headers
-        mock_post.assert_called_once()
-        args, kwargs = mock_post.call_args
-        self.assertEqual(args[0], self.api_url)
-        self.assertEqual(kwargs['headers']['X-goog-api-key'], self.api_key)
-        
-        # Verify prompt contained instruction for checking
-        sent_data = json.loads(kwargs['data'])
-        prompt_text = sent_data['contents'][0]['parts'][0]['text']
-        self.assertIn("grammar and spelling corrector", prompt_text)
+        # Verify API was called with correct model and config
+        self.mock_client_instance.models.generate_content.assert_called_once()
+        args, kwargs = self.mock_client_instance.models.generate_content.call_args
+        self.assertEqual(kwargs['model'], 'gemini-2.0-flash')
+        self.assertIn("grammar and spelling corrector", kwargs['contents'])
 
-    @patch('requests.post')
-    def test_translation_non_english(self, mock_post):
+    def test_translation_non_english(self):
         # Mock response
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            'candidates': [{'content': {'parts': [{'text': 'Translated text'}]}}]
-        }
-        mock_post.return_value = mock_response
+        mock_response.text = "Translated text"
+        self.mock_client_instance.models.generate_content.return_value = mock_response
 
         # Mock is_english_text to return False
         with patch.object(self.checker, 'is_english_text', return_value=False):
@@ -75,15 +70,12 @@ class TestEnglishGrammarChecker(unittest.TestCase):
         self.assertEqual(result, "Translated text")
         
         # Verify prompt contained instruction for translation
-        args, kwargs = mock_post.call_args
-        sent_data = json.loads(kwargs['data'])
-        prompt_text = sent_data['contents'][0]['parts'][0]['text']
-        self.assertIn("not in English", prompt_text)
+        args, kwargs = self.mock_client_instance.models.generate_content.call_args
+        self.assertIn("not in English", kwargs['contents'])
 
-    @patch('requests.post')
-    def test_api_error(self, mock_post):
+    def test_api_error(self):
         # Mock request exception
-        mock_post.side_effect = Exception("API connection error")
+        self.mock_client_instance.models.generate_content.side_effect = Exception("API connection error")
         
         with patch.object(self.checker, 'is_english_text', return_value=True):
             result = self.checker.check_and_correct_grammar("Test")

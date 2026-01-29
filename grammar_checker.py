@@ -1,16 +1,17 @@
 from langdetect import detect
 import re
-import requests
-import json
+from google import genai
+from google.genai import types
 import logging
 
 logger = logging.getLogger(__name__)
 
 class EnglishGrammarChecker:
-    def __init__(self, api_key, api_url):
+    def __init__(self, api_key):
         self.english_pattern = re.compile(r'[a-zA-Z]+')
         self.api_key = api_key
-        self.api_url = api_url
+        # Initialize the GenAI client
+        self.client = genai.Client(api_key=self.api_key)
         
     def is_english_text(self, text):
         """Check if the text is mostly English using langdetect"""
@@ -49,28 +50,27 @@ class EnglishGrammarChecker:
             Please provide a natural and correct English version of this sentence.
             """
         
-        headers = {
-            "Content-Type": "application/json",
-            "X-goog-api-key": f"{self.api_key}"
-        }
-        data = {
-            'contents': [{
-                'parts': [{
-                    'text': prompt
-                }]
-            }],
-            'generationConfig': {
-                'temperature': 0.3,  # Controls randomness (0.0 to 2.0 for gemini-1.5-flash)
-                'maxOutputTokens': 200  # Limits response length
-            }
-        }
         try:
-            response = requests.post(self.api_url, headers=headers, data=json.dumps(data))
-            response.raise_for_status()
-            result = response.json()
-            # Gemini returns output text under 'candidates' -> [0] -> 'content'
-            corrected_text = result['candidates'][0]['content']['parts'][0]['text'].strip()
-            return corrected_text
+            # Call Gemini API using the SDK
+            # Using 'gemini-3-flash-preview' as requested for stability
+            response = self.client.models.generate_content(
+                model='gemini-3-flash-preview',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="low"
+                    )
+                )
+            )
+            
+            if response.text:
+                return response.text.strip()
+            else:
+                logger.warning("Gemini returned empty response")
+                return "" # Return empty string instead of fallback message if actually empty, to let app decide? 
+                          # Actually sticking to old behavior of returning strings, but let's be safe.
+                          # If text is empty, it usually means blocked content or error.
+                
         except Exception as e:
             logger.error(f"Gemini API error: {e}")
             return "Sorry, the grammar correction service is temporarily unavailable."
